@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fgtago/fgweb"
+	"github.com/go-chi/chi/v5"
 )
 
 type Server struct {
@@ -28,15 +29,26 @@ func (s *Server) Start(p *Program) {
 	s.wg.Add(1)
 
 	cfgpath := filepath.Join(p.RootDir, p.ConfigFileName)
-
-	// start jalankan web
 	ws, err := fgweb.New(p.RootDir, cfgpath)
 	if err != nil {
 		log.Fatalf("HTTP server error: %v", err)
 		return
 	}
 
+	port := ws.Configuration.Port
+	log.Println("Service running on port", port)
+	httpserver := &http.Server{
+		Addr: fmt.Sprintf(":%d", port),
+	}
+
 	go func() {
+
+		ws.Mux = fgweb.CreateRequestHandler(func(mux *chi.Mux) error {
+			return Router(mux)
+		})
+
+		httpserver.Handler = ws.Mux
+
 		if err := httpserver.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("HTTP server error: %v", err)
 		}
@@ -45,6 +57,7 @@ func (s *Server) Start(p *Program) {
 
 		log.Println("Stoppend serving new connection")
 		shutdownChannel <- true
+		s.wg.Done()
 
 	}()
 
@@ -68,38 +81,4 @@ func (s *Server) Stop() error {
 	close(s.exit)
 	s.wg.Wait()
 	return nil
-}
-
-func (s *Server) CreateHandler() {
-	defer s.wg.Done()
-
-	// buat service http yang simple
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `
-		<html>
-			<head>
-				<title>GS</title>
-			</head>
-			<body>
-				golang service home<br>
-				<a href="/about">About</a>
-			</body>
-		</html>
-		`)
-	})
-
-	http.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `
-		<html>
-			<head>
-				<title>GS - About</title>
-			</head>
-			<body>
-				About Page<br>
-				back to <a href="/">Home</a>
-			</body>
-		</html>			
-		`)
-	})
-
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,9 +22,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	var cfgFileName string
+	flag.StringVar(&cfgFileName, "conf", "config.yml", "nama file konfigurasi yang akan di load")
+	flag.Parse()
+
 	prg := Program{
-		svr: &Server{},
-		ctx: ctx,
+		svr:            &Server{},
+		ctx:            ctx,
+		ConfigFileName: cfgFileName,
 	}
 
 	defer func() {
@@ -68,12 +74,8 @@ func (p *Program) Init(env svc.Environment) error {
 		}
 
 		p.LogFile = f
-		p.ConfigFileName = "config.yml"
-
 		log.Println("logfile", p.LogFile)
 		log.SetOutput(f)
-	} else {
-		p.ConfigFileName = "config-dev.yml"
 	}
 
 	return nil
